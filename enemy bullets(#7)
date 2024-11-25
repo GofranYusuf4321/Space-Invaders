@@ -1,0 +1,148 @@
+#include "raylib.h"
+
+#define MAX_BULLETS 50
+#define MAX_ENEMY_BULLETS 50
+
+typedef struct Player {
+    Vector2 position;
+    Vector2 speed;
+} Player;
+
+typedef struct Enemy {
+    Vector2 position;
+    Vector2 speed;
+    int width;
+    int height;
+} Enemy;
+
+typedef struct Bullet {
+    Vector2 position;
+    Vector2 speed;
+    bool active;
+} Bullet;
+
+int main()
+{
+    Color grey = {29,29,27,255};
+    int windowWidth = 750;
+    int windowHeight = 700;
+
+    InitWindow(windowWidth, windowHeight, "Space Invaders");
+    SetTargetFPS(60);
+
+    Player player = { { windowWidth/2, windowHeight - 60 }, { 4.0f, 0 } };
+    Enemy enemy = { { windowWidth/2, 50 }, { 2.0f, 0 }, 40, 20 };
+
+    Bullet bullets[MAX_BULLETS] = { 0 };
+    for (int i = 0; i < MAX_BULLETS; i++) {
+        bullets[i].speed = (Vector2){ 0, -5.0f };
+        bullets[i].active = false;
+    }
+
+    Bullet enemyBullets[MAX_ENEMY_BULLETS] = { 0 };
+    for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+        enemyBullets[i].speed = (Vector2){ 0, 5.0f };
+        enemyBullets[i].active = false;
+    }
+
+    while(!WindowShouldClose())
+    {
+        if (IsKeyDown(KEY_LEFT)) player.position.x -= player.speed.x;
+        if (IsKeyDown(KEY_RIGHT)) player.position.x += player.speed.x;
+
+        enemy.position.x += enemy.speed.x;
+        if (enemy.position.x <= 0 || enemy.position.x + enemy.width >= windowWidth) {
+            enemy.speed.x *= -1; 
+        }
+
+        if (enemy.position.x >= 0 && enemy.position.x <= windowWidth && GetRandomValue(0, 100) < 2) {
+            for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+                if (!enemyBullets[i].active) {
+                    enemyBullets[i].position = (Vector2){ enemy.position.x, enemy.position.y + 20 };
+                    enemyBullets[i].active = true;
+                    break;
+                }
+            }
+        }
+
+        if (IsKeyPressed(KEY_SPACE)) {
+            for (int i = 0; i < MAX_BULLETS; i++) {
+                if (!bullets[i].active) {
+                    bullets[i].position = (Vector2){ player.position.x, player.position.y - 20 };
+                    bullets[i].active = true;
+                    break;
+                }
+            }
+        }
+
+        for (int i = 0; i < MAX_BULLETS; i++) {
+            if (bullets[i].active) {
+                bullets[i].position.y += bullets[i].speed.y;
+                if (bullets[i].position.y < 0) bullets[i].active = false;
+            }
+        }
+
+        for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+            if (enemyBullets[i].active) {
+                enemyBullets[i].position.y += enemyBullets[i].speed.y;
+                if (enemyBullets[i].position.y > windowHeight) enemyBullets[i].active = false;
+            }
+        }
+
+        BeginDrawing();
+        ClearBackground(grey);
+
+        Vector2 top = { player.position.x, player.position.y - 20 }; 
+        Vector2 leftWingTip = { player.position.x - 25, player.position.y + 25 }; 
+        Vector2 rightWingTip = { player.position.x + 25, player.position.y + 25 }; 
+        Vector2 bodyLeft = { player.position.x - 10, player.position.y + 10 }; 
+        Vector2 bodyRight = { player.position.x + 10, player.position.y + 10 }; 
+
+        DrawTriangle(top, bodyLeft, bodyRight, BLUE);
+        DrawRectangleV((Vector2){ player.position.x - 10, player.position.y + 10 }, (Vector2){ 20, 30 }, BLUE);
+
+        DrawTriangle(leftWingTip, bodyLeft, (Vector2){ player.position.x - 10, player.position.y + 20 }, DARKBLUE);
+        DrawTriangle(rightWingTip, bodyRight, (Vector2){ player.position.x + 10, player.position.y + 20 }, DARKBLUE);
+
+        DrawCircle(player.position.x, player.position.y - 10, 5, LIGHTGRAY);
+
+        DrawRectangle(player.position.x - 6, player.position.y + 30, 4, 10, ORANGE);
+        DrawRectangle(player.position.x + 2, player.position.y + 30, 4, 10, ORANGE);
+
+        DrawRectangle(player.position.x - 5, player.position.y - 15, 10, 5, LIGHTGRAY);
+        DrawRectangle(player.position.x - 10, player.position.y - 5, 5, 5, LIGHTGRAY);
+        DrawRectangle(player.position.x + 5, player.position.y - 5, 5, 5, LIGHTGRAY);
+
+        DrawRectangle(player.position.x - 2, player.position.y + 10, 4, 4, RED);
+
+        Vector2 enemyTop = { enemy.position.x, enemy.position.y - 10 };
+        Vector2 enemyLeft = { enemy.position.x - enemy.width / 2, enemy.position.y };
+        Vector2 enemyRight = { enemy.position.x + enemy.width / 2, enemy.position.y };
+        Vector2 enemyBottomLeft = { enemy.position.x - enemy.width / 3, enemy.position.y + enemy.height };
+        Vector2 enemyBottomRight = { enemy.position.x + enemy.width / 3, enemy.position.y + enemy.height };
+
+        DrawTriangle(enemyTop, enemyLeft, enemyRight, RED);
+        DrawTriangle(enemyLeft, enemyBottomLeft, enemyBottomRight, DARKGRAY);
+        DrawTriangle(enemyRight, enemyBottomLeft, enemyBottomRight, DARKGRAY);
+
+        DrawRectangle(enemy.position.x - 5, enemy.position.y - 5, 10, 5, LIGHTGRAY);
+
+        for (int i = 0; i < MAX_BULLETS; i++) {
+            if (bullets[i].active) {
+                DrawCircleV(bullets[i].position, 2, YELLOW);
+            }
+        }
+
+        for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+            if (enemyBullets[i].active) {
+                DrawCircleV(enemyBullets[i].position, 2, RED);
+            }
+        }
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+
+    return 0;
+}
