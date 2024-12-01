@@ -1,0 +1,219 @@
+#include "raylib.h"
+
+#define MAX_BULLETS 50
+#define MAX_ENEMY_BULLETS 50
+#define MAX_ENEMIES 5
+#define MAX_LIVES 3
+
+typedef struct Player {
+    Vector2 position;
+    Vector2 speed;
+    int lives;
+} Player;
+
+typedef struct Enemy {
+    Vector2 position;
+    Vector2 speed;
+    int width;
+    int height;
+    bool active;
+} Enemy;
+
+typedef struct Bullet {
+    Vector2 position;
+    Vector2 speed;
+    bool active;
+} Bullet;
+
+int main()
+{
+    Color grey = {29,29,27,255};
+    int windowWidth = 750;
+    int windowHeight = 700;
+
+    InitWindow(windowWidth, windowHeight, "Space Invaders");
+    SetTargetFPS(60);
+
+    Player player = { { windowWidth/2, windowHeight - 60 }, { 4.0f, 0 }, MAX_LIVES };
+
+    // Initialize enemies
+    Enemy enemies[MAX_ENEMIES] = { 0 };
+    for (int i = 0; i < MAX_ENEMIES; i++) {
+        enemies[i] = (Enemy){ { GetRandomValue(0, windowWidth), 50 + i*40 }, { 2.0f, 0 }, 40, 20, true };
+    }
+
+    // Initialize player bullets
+    Bullet bullets[MAX_BULLETS] = { 0 };
+    for (int i = 0; i < MAX_BULLETS; i++) {
+        bullets[i].speed = (Vector2){ 0, -5.0f };
+        bullets[i].active = false;
+    }
+
+    // Initialize enemy bullets
+    Bullet enemyBullets[MAX_ENEMY_BULLETS] = { 0 };
+    for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+        enemyBullets[i].speed = (Vector2){ 0, 5.0f };
+        enemyBullets[i].active = false;
+    }
+
+    int score = 0;
+
+    while(!WindowShouldClose())
+    {
+        // Update player position
+        if (IsKeyDown(KEY_LEFT)) player.position.x -= player.speed.x;
+        if (IsKeyDown(KEY_RIGHT)) player.position.x += player.speed.x;
+
+        // Update enemies position
+        for (int i = 0; i < MAX_ENEMIES; i++) {
+            if (enemies[i].active) {
+                enemies[i].position.x += enemies[i].speed.x;
+                if (enemies[i].position.x <= 0 || enemies[i].position.x + enemies[i].width >= windowWidth) {
+                    enemies[i].speed.x *= -1;
+                }
+            }
+        }
+
+        // Enemies shoot bullets randomly
+        for (int i = 0; i < MAX_ENEMIES; i++) {
+            if (enemies[i].active && GetRandomValue(0, 100) < 2) {
+                for (int j = 0; j < MAX_ENEMY_BULLETS; j++) {
+                    if (!enemyBullets[j].active) {
+                        enemyBullets[j].position = (Vector2){ enemies[i].position.x, enemies[i].position.y + 20 };
+                        enemyBullets[j].active = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Player shoots bullets
+        if (IsKeyPressed(KEY_SPACE)) {
+            for (int i = 0; i < MAX_BULLETS; i++) {
+                if (!bullets[i].active) {
+                    bullets[i].position = (Vector2){ player.position.x, player.position.y - 20 };
+                    bullets[i].active = true;
+                    break;
+                }
+            }
+        }
+
+        // Update player bullets
+        for (int i = 0; i < MAX_BULLETS; i++) {
+            if (bullets[i].active) {
+                bullets[i].position.y += bullets[i].speed.y;
+                if (bullets[i].position.y < 0) bullets[i].active = false;
+            }
+        }
+
+        // Update enemy bullets
+        for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+            if (enemyBullets[i].active) {
+                enemyBullets[i].position.y += enemyBullets[i].speed.y;
+                if (enemyBullets[i].position.y > windowHeight) enemyBullets[i].active = false;
+            }
+        }
+
+        // Check for collisions between player bullets and enemies
+        for (int i = 0; i < MAX_BULLETS; i++) {
+            for (int j = 0; j < MAX_ENEMIES; j++) {
+                if (bullets[i].active && enemies[j].active) {
+                    if (CheckCollisionCircleRec(bullets[i].position, 2, (Rectangle){ enemies[j].position.x - enemies[j].width/2, enemies[j].position.y, enemies[j].width, enemies[j].height })) {
+                        bullets[i].active = false;
+                        enemies[j].active = false;
+                        score++;
+
+                        // Respawn the enemy
+                        enemies[j].position = (Vector2){ GetRandomValue(0, windowWidth), 50 + j*40 };
+                        enemies[j].active = true;
+                    }
+                }
+            }
+        }
+
+        // Check if player collides with enemy bullets
+        for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+            if (enemyBullets[i].active) {
+                if (CheckCollisionCircleRec(enemyBullets[i].position, 2, (Rectangle){ player.position.x - 10, player.position.y - 10, 20, 20 })) {
+                    enemyBullets[i].active = false;
+                    player.lives--;
+
+                    // End game if no lives left
+                    if (player.lives <= 0) {
+                        BeginDrawing();
+                        DrawText("GAME OVER", windowWidth/2 - MeasureText("GAME OVER", 40)/2, windowHeight/2 - 20, 40, RED);
+                        EndDrawing();
+                        CloseWindow();
+                        return 0;
+                    }
+                }
+            }
+        }
+
+        BeginDrawing();
+        ClearBackground(grey);
+
+        // Draw player spaceship
+        Vector2 top = { player.position.x, player.position.y - 20 }; 
+        Vector2 leftWingTip = { player.position.x - 25, player.position.y + 25 }; 
+        Vector2 rightWingTip = { player.position.x + 25, player.position.y + 25 }; 
+        Vector2 bodyLeft = { player.position.x - 10, player.position.y + 10 }; 
+        Vector2 bodyRight = { player.position.x + 10, player.position.y + 10 }; 
+
+        DrawTriangle(top, bodyLeft, bodyRight, BLUE);
+        DrawRectangleV((Vector2){ player.position.x - 10, player.position.y + 10 }, (Vector2){ 20, 30 }, BLUE);
+
+        DrawTriangle(leftWingTip, bodyLeft, (Vector2){ player.position.x - 10, player.position.y + 20 }, DARKBLUE);
+        DrawTriangle(rightWingTip, bodyRight, (Vector2){ player.position.x + 10, player.position.y + 20 }, DARKBLUE);
+
+        DrawCircle(player.position.x, player.position.y - 10, 5, LIGHTGRAY);
+
+        DrawRectangle(player.position.x - 6, player.position.y + 30, 4, 10, ORANGE);
+        DrawRectangle(player.position.x + 2, player.position.y + 30, 4, 10, ORANGE);
+
+        DrawRectangle(player.position.x - 5, player.position.y - 15, 10, 5, LIGHTGRAY);
+        DrawRectangle(player.position.x - 10, player.position.y - 5, 5, 5, LIGHTGRAY);
+        DrawRectangle(player.position.x + 5, player.position.y - 5, 5, 5, LIGHTGRAY);
+
+        DrawRectangle(player.position.x - 2, player.position.y + 10, 4, 4, RED);
+
+        // Draw enemy spaceship
+        for (int i = 0; i < MAX_ENEMIES; i++) {
+            if (enemies[i].active) {
+                Vector2 enemyTop = { enemies[i].position.x, enemies[i].position.y - 10 };
+                Vector2 enemyLeft = { enemies[i].position.x - enemies[i].width / 2, enemies[i].position.y };
+                Vector2 enemyRight = { enemies[i].position.x + enemies[i].width / 2, enemies[i].position.y };
+                Vector2 enemyBottomLeft = { enemies[i].position.x - enemies[i].width / 3, enemies[i].position.y + enemies[i].height };
+                Vector2 enemyBottomRight = { enemies[i].position.x + enemies[i].width / 3, enemies[i].position.y + enemies[i].height };
+
+                DrawTriangle(enemyTop, enemyLeft, enemyRight, RED);
+                DrawTriangle(enemyLeft, enemyBottomLeft, enemyBottomRight, DARKGRAY);
+                DrawTriangle(enemyRight, enemyBottomRight, enemyBottomLeft, DARKGRAY);
+            }
+        }
+
+        // Draw bullets
+        for (int i = 0; i < MAX_BULLETS; i++) {
+            if (bullets[i].active) {
+                DrawRectangle(bullets[i].position.x - 2, bullets[i].position.y, 4, 10, YELLOW);
+            }
+        }
+
+        // Draw enemy bullets
+        for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
+            if (enemyBullets[i].active) {
+                DrawRectangle(enemyBullets[i].position.x - 2, enemyBullets[i].position.y, 4, 10, GREEN);
+            }
+        }
+
+        // Draw score and lives
+        DrawText(TextFormat("Lives: %i", player.lives), 10, 10, 20, WHITE);
+        DrawText(TextFormat("Score: %i", score), windowWidth - 100, 10, 20, WHITE);
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+
+    return 0;
+}
