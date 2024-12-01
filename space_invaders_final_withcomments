@@ -118,7 +118,8 @@ int main()
         for (int i = 0; i < MAX_BULLETS; i++) {
             for (int j = 0; j < MAX_ENEMIES; j++) {
                 if (bullets[i].active && enemies[j].active) {
-                    if (CheckCollisionCircleRec(bullets[i].position, 2, (Rectangle){ enemies[j].position.x - enemies[j].width/2, enemies[j].position.y, enemies[j].width, enemies[j].height })) {
+                    // Use CheckCollisionRecs() to check if the player bullet (rect) intersects with the enemy (rect)
+                    if (CheckCollisionRecs((Rectangle){ bullets[i].position.x, bullets[i].position.y, 4, 10 }, (Rectangle){ enemies[j].position.x - enemies[j].width/2, enemies[j].position.y, enemies[j].width, enemies[j].height })) {
                         bullets[i].active = false;
                         enemies[j].active = false;
                         score++;
@@ -134,7 +135,8 @@ int main()
         // Check if player collides with enemy bullets
         for (int i = 0; i < MAX_ENEMY_BULLETS; i++) {
             if (enemyBullets[i].active) {
-                if (CheckCollisionCircleRec(enemyBullets[i].position, 2, (Rectangle){ player.position.x - 10, player.position.y - 10, 20, 20 })) {
+                // Use CheckCollisionRecs() to check if the enemy bullet (rect) intersects with the player (rect)
+                if (CheckCollisionRecs((Rectangle){ enemyBullets[i].position.x, enemyBullets[i].position.y, 4, 10 }, (Rectangle){ player.position.x - 10, player.position.y - 10, 20, 20 })) {
                     enemyBullets[i].active = false;
                     player.lives--;
 
